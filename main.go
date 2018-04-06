@@ -109,11 +109,11 @@ func (g *Game) setExclusiveMouse(exclusive bool) {
 	g.exclusiveMouse = exclusive
 }
 
-func (g *Game) dirtyBlock(id Vec3) {
-	cid := id.Chunkid()
-	neighbors := []Vec3{id.Left(), id.Right(), id.Front(), id.Back()}
+func (g *Game) dirtyBlock(id BlockID) {
+	cid := id.ChunkID()
+	neighbors := []BlockID{id.Left(), id.Right(), id.Front(), id.Back()}
 	for _, neighbor := range neighbors {
-		chunkid := neighbor.Chunkid()
+		chunkid := neighbor.ChunkID()
 		if chunkid != cid {
 			g.world.Chunk(chunkid).UpdateVersion()
 		}
@@ -172,7 +172,7 @@ func (g *Game) onKeyCallback(win *glfw.Window, key glfw.Key, scancode int, actio
 		g.camera.FlipFlying()
 	case glfw.KeySpace:
 		block := g.CurrentBlockid()
-		if g.world.HasBlock(Vec3{block.X, block.Y - 2, block.Z}) {
+		if g.world.HasBlock(BlockID{block.X, block.Y - 2, block.Z}) {
 			g.vy = 8
 		}
 	case glfw.KeyE:
@@ -226,7 +226,7 @@ func (g *Game) handleKeyInput(dt float64) {
 	g.camera.SetPos(pos)
 }
 
-func (g *Game) CurrentBlockid() Vec3 {
+func (g *Game) CurrentBlockid() BlockID {
 	pos := g.camera.Pos()
 	return NearBlock(pos)
 }
@@ -238,7 +238,7 @@ func (g *Game) ShouldClose() bool {
 func (g *Game) renderStat() {
 	g.fps.Update()
 	p := g.camera.Pos()
-	cid := NearBlock(p).Chunkid()
+	cid := NearBlock(p).ChunkID()
 	stat := g.blockRender.Stat()
 	title := fmt.Sprintf("[%.2f %.2f %.2f] %v [%d/%d %d] %d", p.X(), p.Y(), p.Z(),
 		cid, stat.RendingChunks, stat.CacheChunks, stat.Faces, g.fps.Fps())

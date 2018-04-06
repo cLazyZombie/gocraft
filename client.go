@@ -33,11 +33,11 @@ func (c *Client) readCommand() string {
 	return line[:len(line)-1]
 }
 
-func (c *Client) FetchChunk(id Vec3) map[Vec3]int {
+func (c *Client) FetchChunk(id ChunkID) map[BlockID]int {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	fmt.Fprintf(c.conn, "C,%d,%d,123\r\n", id.X, id.Z)
-	m := make(map[Vec3]int)
+	m := make(map[BlockID]int)
 	for {
 		cmd := c.readCommand()
 		if cmd[0] == 'C' {
@@ -48,8 +48,8 @@ func (c *Client) FetchChunk(id Vec3) map[Vec3]int {
 		}
 		var p, q, x, y, z, w int
 		fmt.Sscanf(cmd, "B,%d,%d,%d,%d,%d,%d", &p, &q, &x, &y, &z, &w)
-		block := Vec3{x, y, z}
-		if block.Chunkid() != id {
+		block := BlockID{x, y, z}
+		if block.ChunkID() != id {
 			// log.Printf("block %v chunk %v, %v", block, block.Chunkid(), id)
 			continue
 		}

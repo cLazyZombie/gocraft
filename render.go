@@ -96,7 +96,7 @@ func (r *BlockRender) makeChunkMesh(c *Chunk, onmainthread bool) *Mesh {
 	facedata := r.facePool.Get().([]float32)
 	defer r.facePool.Put(facedata[:0])
 
-	c.RangeBlocks(func(id Vec3, w int) {
+	c.RangeBlocks(func(id BlockID, w int) {
 		if w == 0 {
 			log.Panicf("unexpect 0 item type on %v", id)
 		}
@@ -125,7 +125,7 @@ func (r *BlockRender) makeChunkMesh(c *Chunk, onmainthread bool) *Mesh {
 		})
 	}
 	mesh.Version = c.Version
-	mesh.Id = c.Id()
+	mesh.Id = c.ID()
 	return mesh
 }
 
@@ -135,7 +135,7 @@ func (r *BlockRender) UpdateItem(w int) {
 	defer r.facePool.Put(vertices[:0])
 	texture := tex.Texture(w)
 	show := [...]bool{true, true, true, true, true, true}
-	pos := Vec3{0, 0, 0}
+	pos := BlockID{0, 0, 0}
 	if IsPlant(w) {
 		vertices = makePlantData(vertices, show, pos, texture)
 	} else {
@@ -160,7 +160,7 @@ func frustumPlanes(mat *mgl32.Mat4) []mgl32.Vec4 {
 	}
 }
 
-func isChunkVisiable(planes []mgl32.Vec4, id Vec3) bool {
+func isChunkVisiable(planes []mgl32.Vec4, id ChunkID) bool {
 	p := mgl32.Vec3{float32(id.X * ChunkWidth), 0, float32(id.Z * ChunkWidth)}
 	const m = ChunkWidth
 
@@ -209,15 +209,15 @@ func (r *BlockRender) get2dmat() mgl32.Mat4 {
 	return mat
 }
 
-func (r *BlockRender) sortNeededChunks(m map[Vec3]bool) []Vec3 {
+func (r *BlockRender) sortNeededChunks(m map[ChunkID]bool) []ChunkID {
 	i := 0
-	keys := make([]Vec3, len(m))
+	keys := make([]ChunkID, len(m))
 	for k := range m {
 		keys[i] = k
 		i++
 	}
 
-	cid := NearBlock(r.game.camera.Pos()).Chunkid()
+	cid := NearBlock(r.game.camera.Pos()).ChunkID()
 	x, z := cid.X, cid.Z
 	mat := r.get3dmat()
 	planes := frustumPlanes(&mat)
@@ -240,23 +240,23 @@ func (r *BlockRender) sortNeededChunks(m map[Vec3]bool) []Vec3 {
 
 func (r *BlockRender) updateMeshCache() {
 	block := NearBlock(r.game.camera.Pos())
-	chunk := block.Chunkid()
+	chunk := block.ChunkID()
 	x, z := chunk.X, chunk.Z
 	n := *renderRadius
-	needed := make(map[Vec3]bool)
+	needed := make(map[ChunkID]bool)
 
 	for dx := -n; dx < n; dx++ {
 		for dz := -n; dz < n; dz++ {
-			id := Vec3{x + dx, 0, z + dz}
+			id := ChunkID{x + dx, 0, z + dz}
 			if dx*dx+dz*dz > n*n {
 				continue
 			}
 			needed[id] = true
 		}
 	}
-	var added, removed []Vec3
+	var added, removed []ChunkID
 	r.meshcache.Range(func(k, v interface{}) bool {
-		id := k.(Vec3)
+		id := k.(ChunkID)
 		if !needed[id] {
 			removed = append(removed, id)
 			return true
@@ -265,14 +265,12 @@ func (r *BlockRender) updateMeshCache() {
 	})
 
 	neededChunks := r.sortNeededChunks(needed)
-	// 单次并发构造的chunk个数
 	const batchBuildChunk = 4
 	for _, id := range neededChunks {
 		if len(added) > batchBuildChunk {
 			break
 		}
 		mesh, ok := r.meshcache.Load(id)
-		// 不在cache里面的需要重新构建
 		if !ok {
 			added = append(added, id)
 		} else {
@@ -295,8 +293,8 @@ func (r *BlockRender) updateMeshCache() {
 
 	newChunks := r.game.world.Chunks(added)
 	for _, c := range newChunks {
-		log.Printf("add cache %v", c.Id())
-		r.meshcache.Store(c.Id(), r.makeChunkMesh(c, false))
+		log.Printf("add cache %v", c.ID())
+		r.meshcache.Store(c.ID(), r.makeChunkMesh(c, false))
 	}
 
 	mainthread.CallNonBlock(func() {
@@ -308,7 +306,7 @@ func (r *BlockRender) updateMeshCache() {
 }
 
 // called on mainthread
-func (r *BlockRender) forceChunks(ids []Vec3) {
+func (r *BlockRender) forceChunks(ids []ChunkID) {
 	var removedMesh []*Mesh
 	for _, id := range ids {
 		chunk := r.game.world.Chunk(id)
@@ -334,11 +332,11 @@ func (r *BlockRender) forceChunks(ids []Vec3) {
 
 func (r *BlockRender) forcePlayerChunks() {
 	bid := NearBlock(r.game.camera.Pos())
-	cid := bid.Chunkid()
-	var ids []Vec3
+	cid := bid.ChunkID()
+	var ids []ChunkID
 	for dx := -1; dx <= 1; dx++ {
 		for dz := -1; dz <= 1; dz++ {
-			id := Vec3{cid.X + dx, 0, cid.Z + dz}
+			id := ChunkID{cid.X + dx, 0, cid.Z + dz}
 			ids = append(ids, id)
 		}
 	}
@@ -366,7 +364,7 @@ func (r *BlockRender) drawChunks() {
 	planes := frustumPlanes(&mat)
 	r.stat = Stat{}
 	r.meshcache.Range(func(k, v interface{}) bool {
-		id, mesh := k.(Vec3), v.(*Mesh)
+		id, mesh := k.(ChunkID), v.(*Mesh)
 		r.stat.CacheChunks++
 		if isChunkVisiable(planes, id) {
 			r.stat.RendingChunks++
@@ -418,7 +416,7 @@ func (r *BlockRender) Stat() Stat {
 type Mesh struct {
 	vao, vbo uint32
 	faces    int
-	Id       Vec3
+	Id       ChunkID
 	Version  int64
 }
 
@@ -554,7 +552,7 @@ type LineRender struct {
 	shader    *glhf.Shader
 	cross     *Lines
 	wireFrame *Lines
-	lastBlock Vec3
+	lastBlock BlockID
 }
 
 func NewLineRender(game *Game) (*LineRender, error) {

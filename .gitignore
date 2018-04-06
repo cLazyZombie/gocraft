@@ -1,2 +1,4 @@
 gocraft
 gocraft.db
+debug
+gocraft.db.lock

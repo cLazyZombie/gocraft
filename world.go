@@ -10,7 +10,7 @@ import (
 
 type World struct {
 	mutex  sync.Mutex
-	chunks *lru.Cache // map[Vec3]*Chunk
+	chunks *lru.Cache // map[ChunkID]*Chunk
 }
 
 func NewWorld() *World {
@@ -21,7 +21,7 @@ func NewWorld() *World {
 	}
 }
 
-func (w *World) loadChunk(id Vec3) (*Chunk, bool) {
+func (w *World) loadChunk(id ChunkID) (*Chunk, bool) {
 	chunk, ok := w.chunks.Get(id)
 	if !ok {
 		return nil, false
@@ -29,7 +29,7 @@ func (w *World) loadChunk(id Vec3) (*Chunk, bool) {
 	return chunk.(*Chunk), true
 }
 
-func (w *World) storeChunk(id Vec3, chunk *Chunk) {
+func (w *World) storeChunk(id ChunkID, chunk *Chunk) {
 	w.chunks.Add(id, chunk)
 }
 
@@ -38,11 +38,11 @@ func (w *World) Collide(pos mgl32.Vec3) (mgl32.Vec3, bool) {
 	nx, ny, nz := round(pos.X()), round(pos.Y()), round(pos.Z())
 	const pad = 0.25
 
-	head := Vec3{int(nx), int(ny), int(nz)}
+	head := BlockID{int(nx), int(ny), int(nz)}
 	foot := head.Down()
 
 	stop := false
-	for _, b := range []Vec3{foot, head} {
+	for _, b := range []BlockID{foot, head} {
 		if IsObstacle(w.Block(b.Left())) && x < nx && nx-x > pad {
 			x = nx - pad
 		}
@@ -67,13 +67,13 @@ func (w *World) Collide(pos mgl32.Vec3) (mgl32.Vec3, bool) {
 	return mgl32.Vec3{x, y, z}, stop
 }
 
-func (w *World) HitTest(pos mgl32.Vec3, vec mgl32.Vec3) (*Vec3, *Vec3) {
+func (w *World) HitTest(pos mgl32.Vec3, vec mgl32.Vec3) (*BlockID, *BlockID) {
 	var (
 		maxLen = float32(8.0)
 		step   = float32(0.125)
 
-		block, prev Vec3
-		pprev       *Vec3
+		block, prev BlockID
+		pprev       *BlockID
 	)
 
 	for len := float32(0); len < maxLen; len += step {
@@ -87,7 +87,7 @@ func (w *World) HitTest(pos mgl32.Vec3, vec mgl32.Vec3) (*Vec3, *Vec3) {
 	return nil, nil
 }
 
-func (w *World) Block(id Vec3) int {
+func (w *World) Block(id BlockID) int {
 	chunk := w.BlockChunk(id)
 	if chunk == nil {
 		return -1
@@ -95,8 +95,8 @@ func (w *World) Block(id Vec3) int {
 	return chunk.Block(id)
 }
 
-func (w *World) BlockChunk(block Vec3) *Chunk {
-	cid := block.Chunkid()
+func (w *World) BlockChunk(block BlockID) *Chunk {
+	cid := block.ChunkID()
 	chunk, ok := w.loadChunk(cid)
 	if !ok {
 		return nil
@@ -137,12 +137,12 @@ func IsObstacle(tp int) bool {
 	}
 }
 
-func (w *World) HasBlock(id Vec3) bool {
+func (w *World) HasBlock(id BlockID) bool {
 	tp := w.Block(id)
 	return tp != -1 && tp != 0
 }
 
-func (w *World) Chunk(id Vec3) *Chunk {
+func (w *World) Chunk(id ChunkID) *Chunk {
 	p, ok := w.loadChunk(id)
 	if ok {
 		return p
@@ -152,7 +152,7 @@ func (w *World) Chunk(id Vec3) *Chunk {
 	for block, tp := range blocks {
 		chunk.Add(block, tp)
 	}
-	err := store.RangeBlocks(id, func(bid Vec3, w int) {
+	err := store.RangeBlocks(id, func(bid BlockID, w int) {
 		if w == 0 {
 			chunk.Del(bid)
 			return
@@ -167,7 +167,7 @@ func (w *World) Chunk(id Vec3) *Chunk {
 	return chunk
 }
 
-func (w *World) Chunks(ids []Vec3) []*Chunk {
+func (w *World) Chunks(ids []ChunkID) []*Chunk {
 	ch := make(chan *Chunk)
 	var chunks []*Chunk
 	for _, id := range ids {
@@ -185,7 +185,7 @@ func (w *World) Chunks(ids []Vec3) []*Chunk {
 	return chunks
 }
 
-func makeChunkMap(cid Vec3) map[Vec3]int {
+func makeChunkMap(cid ChunkID) map[BlockID]int {
 	const (
 		grassBlock = 1
 		sandBlock  = 2
@@ -193,7 +193,7 @@ func makeChunkMap(cid Vec3) map[Vec3]int {
 		leaves     = 15
 		wood       = 5
 	)
-	m := make(map[Vec3]int)
+	m := make(map[BlockID]int)
 	p, q := cid.X, cid.Z
 	for dx := 0; dx < ChunkWidth; dx++ {
 		for dz := 0; dz < ChunkWidth; dz++ {
@@ -209,17 +209,17 @@ func makeChunkMap(cid Vec3) map[Vec3]int {
 			}
 			// grass and sand
 			for y := 0; y < h; y++ {
-				m[Vec3{x, y, z}] = w
+				m[BlockID{x, y, z}] = w
 			}
 
 			// flowers
 			if w == grassBlock {
 				if noise2(-float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2) > 0.6 {
-					m[Vec3{x, h, z}] = grass
+					m[BlockID{x, h, z}] = grass
 				}
 				if noise2(float32(x)*0.05, float32(-z)*0.05, 4, 0.8, 2) > 0.7 {
 					w := 18 + int(noise2(float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2)*7)
-					m[Vec3{x, h, z}] = w
+					m[BlockID{x, h, z}] = w
 				}
 			}
 
@@ -236,13 +236,13 @@ func makeChunkMap(cid Vec3) map[Vec3]int {
 							for oz := -3; oz <= 3; oz++ {
 								d := ox*ox + oz*oz + (y-h-4)*(y-h-4)
 								if d < 11 {
-									m[Vec3{x + ox, y, z + oz}] = leaves
+									m[BlockID{x + ox, y, z + oz}] = leaves
 								}
 							}
 						}
 					}
 					for y := h; y < h+7; y++ {
-						m[Vec3{x, y, z}] = wood
+						m[BlockID{x, y, z}] = wood
 					}
 				}
 			}
@@ -250,7 +250,7 @@ func makeChunkMap(cid Vec3) map[Vec3]int {
 			// cloud
 			for y := 64; y < 72; y++ {
 				if noise3(float32(x)*0.01, float32(y)*0.1, float32(z)*0.01, 8, 0.5, 2) > 0.69 {
-					m[Vec3{x, y, z}] = 16
+					m[BlockID{x, y, z}] = 16
 				}
 			}
 		}

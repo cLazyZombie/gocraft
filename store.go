@@ -56,11 +56,11 @@ func NewStore(p string) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) UpdateBlock(id Vec3, w int) error {
+func (s *Store) UpdateBlock(id BlockID, w int) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		log.Printf("put %v -> %d", id, w)
 		bkt := tx.Bucket(blockBucket)
-		cid := id.Chunkid()
+		cid := id.ChunkID()
 		key := encodeBlockDbKey(cid, id)
 		value := encodeBlockDbValue(w)
 		return bkt.Put(key, value)
@@ -96,10 +96,10 @@ func (s *Store) GetCamera() (mgl32.Vec3, float32, float32) {
 	return pos, rx, ry
 }
 
-func (s *Store) RangeBlocks(id Vec3, f func(bid Vec3, w int)) error {
+func (s *Store) RangeBlocks(id ChunkID, f func(bid BlockID, w int)) error {
 	return s.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(blockBucket)
-		startkey := encodeBlockDbKey(id, Vec3{0, 0, 0})
+		startkey := encodeBlockDbKey(id, BlockID{0, 0, 0})
 		iter := bkt.Cursor()
 		for k, v := iter.Seek(startkey); k != nil; k, v = iter.Next() {
 			cid, bid := decodeBlockDbKey(k)
@@ -118,14 +118,14 @@ func (s *Store) Close() {
 	s.db.Close()
 }
 
-func encodeBlockDbKey(cid, bid Vec3) []byte {
+func encodeBlockDbKey(cid ChunkID, bid BlockID) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, [...]int32{int32(cid.X), int32(cid.Z)})
 	binary.Write(buf, binary.LittleEndian, [...]int32{int32(bid.X), int32(bid.Y), int32(bid.Z)})
 	return buf.Bytes()
 }
 
-func decodeBlockDbKey(b []byte) (Vec3, Vec3) {
+func decodeBlockDbKey(b []byte) (ChunkID, BlockID) {
 	if len(b) != 4*5 {
 		log.Panicf("bad db key length:%d", len(b))
 	}
@@ -133,9 +133,9 @@ func decodeBlockDbKey(b []byte) (Vec3, Vec3) {
 	var arr [5]int32
 	binary.Read(buf, binary.LittleEndian, &arr)
 
-	cid := Vec3{int(arr[0]), 0, int(arr[1])}
-	bid := Vec3{int(arr[2]), int(arr[3]), int(arr[4])}
-	if bid.Chunkid() != cid {
+	cid := ChunkID{int(arr[0]), 0, int(arr[1])}
+	bid := BlockID{int(arr[2]), int(arr[3]), int(arr[4])}
+	if bid.ChunkID() != cid {
 		log.Panicf("bad db key: cid:%v, bid:%v", cid, bid)
 	}
 	return cid, bid

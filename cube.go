@@ -10,7 +10,7 @@ const (
 )
 
 // show: left, right, up, down, front, back,
-func makeCubeData(vertices []float32, show [6]bool, block Vec3, tex *BlockTexture) []float32 {
+func makeCubeData(vertices []float32, show [6]bool, block BlockID, tex *BlockTexture) []float32 {
 	l, r := tex.Left, tex.Right
 	u, d := tex.Up, tex.Down
 	f, b := tex.Front, tex.Back
@@ -193,7 +193,7 @@ func makeWireFrameData(vertices []float32, show [6]bool) []float32 {
 	return vertices
 }
 
-func makePlantData(vertices []float32, show [6]bool, block Vec3, tex *BlockTexture) []float32 {
+func makePlantData(vertices []float32, show [6]bool, block BlockID, tex *BlockTexture) []float32 {
 	l, r := tex.Left, tex.Right
 	f, b := tex.Front, tex.Back
 	x, y, z := float32(block.X), float32(block.Y), float32(block.Z)
