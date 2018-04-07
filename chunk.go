@@ -78,7 +78,7 @@ func (v ChunkID) Back() ChunkID {
 // Chunk : collection of blocks
 type Chunk struct {
 	id     ChunkID
-	blocks sync.Map // map[Vec3]int
+	blocks sync.Map // map[BlockID]int
 
 	Version int64
 }
