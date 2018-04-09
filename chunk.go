@@ -38,9 +38,24 @@ func (v BlockID) Back() BlockID {
 func (v BlockID) ChunkID() ChunkID {
 	return ChunkID{
 		int(math.Floor(float64(v.X) / ChunkWidth)),
-		0,
+		int(math.Floor(float64(v.Y) / ChunkWidth)),
 		int(math.Floor(float64(v.Z) / ChunkWidth)),
 	}
+}
+func (v BlockID) ToIndex() int {
+	if v.X < 0 {
+		v.X = ChunkWidth + v.X%ChunkWidth
+	}
+
+	if v.Y < 0 {
+		v.Y = ChunkWidth + v.Y%ChunkWidth
+	}
+
+	if v.Z < 0 {
+		v.Z = ChunkWidth + v.Z%ChunkWidth
+	}
+
+	return (v.X % ChunkWidth) + (v.Y%ChunkWidth)*ChunkWidth + (v.Z%ChunkWidth)*ChunkWidth*ChunkWidth
 }
 
 func NearBlock(pos mgl32.Vec3) BlockID {
@@ -77,8 +92,10 @@ func (v ChunkID) Back() ChunkID {
 
 // Chunk : collection of blocks
 type Chunk struct {
-	id     ChunkID
-	blocks sync.Map // map[BlockID]int
+	id ChunkID
+
+	blocks []BlockType
+	locker sync.Locker
 
 	Version int64
 }
@@ -86,6 +103,7 @@ type Chunk struct {
 func NewChunk(id ChunkID) *Chunk {
 	c := &Chunk{
 		id:      id,
+		locker:  &sync.Mutex{},
 		Version: time.Now().Unix(),
 	}
 	return c
@@ -99,22 +117,39 @@ func (c *Chunk) ID() ChunkID {
 	return c.id
 }
 
-func (c *Chunk) Block(id BlockID) int {
+func (c *Chunk) Block(id BlockID) BlockType {
 	if id.ChunkID() != c.id {
 		log.Panicf("id %v chunk %v", id, c.id)
 	}
-	w, ok := c.blocks.Load(id)
-	if ok {
-		return w.(int)
+
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	if len(c.blocks) == 0 {
+		return 0
 	}
-	return 0
+
+	return c.blocks[id.ToIndex()]
 }
 
-func (c *Chunk) Add(id BlockID, w int) {
+func (c *Chunk) Add(id BlockID, w BlockType) {
 	if id.ChunkID() != c.id {
 		log.Panicf("id %v chunk %v", id, c.id)
 	}
-	c.blocks.Store(id, w)
+
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	// add empty ceblock into empty chunk do nothing
+	if len(c.blocks) == 0 && w == 0 {
+		return
+	}
+
+	if len(c.blocks) == 0 {
+		c.blocks = make([]BlockType, ChunkWidth*ChunkWidth*ChunkWidth)
+	}
+
+	c.blocks[id.ToIndex()] = w
 	c.UpdateVersion()
 }
 
@@ -122,13 +157,41 @@ func (c *Chunk) Del(id BlockID) {
 	if id.ChunkID() != c.id {
 		log.Panicf("id %v chunk %v", id, c.id)
 	}
-	c.blocks.Delete(id)
+
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	if len(c.blocks) == 0 {
+		log.Panicln("Del to empth block")
+		return
+	}
+
+	c.blocks[id.ToIndex()] = 0
+
+	// todo: delete blocks if there is no visible block
+
 	c.UpdateVersion()
 }
 
-func (c *Chunk) RangeBlocks(f func(id BlockID, w int)) {
-	c.blocks.Range(func(key, value interface{}) bool {
-		f(key.(BlockID), value.(int))
-		return true
-	})
+func (c *Chunk) RangeBlocks(f func(id BlockID, w BlockType)) {
+	if len(c.blocks) == 0 {
+		return
+	}
+
+	sx, sy, sz := c.id.X*ChunkWidth, c.id.Y*ChunkWidth, c.id.Z*ChunkWidth
+	for z := 0; z < ChunkWidth; z++ {
+		for y := 0; y < ChunkWidth; y++ {
+			for x := 0; x < ChunkWidth; x++ {
+				id := BlockID{x + sx, y + sy, z + sz}
+
+				c.locker.Lock()
+				w := c.blocks[id.ToIndex()]
+				c.locker.Unlock()
+
+				if w != 0 {
+					f(id, w)
+				}
+			}
+		}
+	}
 }

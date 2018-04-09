@@ -34,7 +34,7 @@ type Game struct {
 
 	world   *World
 	itemidx int
-	item    int
+	item    BlockType
 	fps     FPS
 
 	exclusiveMouse bool
@@ -111,7 +111,7 @@ func (g *Game) setExclusiveMouse(exclusive bool) {
 
 func (g *Game) dirtyBlock(id BlockID) {
 	cid := id.ChunkID()
-	neighbors := []BlockID{id.Left(), id.Right(), id.Front(), id.Back()}
+	neighbors := []BlockID{id.Left(), id.Right(), id.Front(), id.Back(), id.Up(), id.Down()}
 	for _, neighbor := range neighbors {
 		chunkid := neighbor.ChunkID()
 		if chunkid != cid {

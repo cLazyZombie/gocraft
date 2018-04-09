@@ -14,7 +14,7 @@ type World struct {
 }
 
 func NewWorld() *World {
-	m := (*renderRadius) * (*renderRadius) * 4
+	m := (*renderRadius) * (*renderRadius) * (*renderRadius) * 4
 	chunks, _ := lru.New(m)
 	return &World{
 		chunks: chunks,
@@ -87,10 +87,10 @@ func (w *World) HitTest(pos mgl32.Vec3, vec mgl32.Vec3) (*BlockID, *BlockID) {
 	return nil, nil
 }
 
-func (w *World) Block(id BlockID) int {
+func (w *World) Block(id BlockID) BlockType {
 	chunk := w.BlockChunk(id)
 	if chunk == nil {
-		return -1
+		return 0
 	}
 	return chunk.Block(id)
 }
@@ -104,32 +104,30 @@ func (w *World) BlockChunk(block BlockID) *Chunk {
 	return chunk
 }
 
-func IsPlant(tp int) bool {
+func IsPlant(tp BlockType) bool {
 	if tp >= 17 && tp <= 31 {
 		return true
 	}
 	return false
 }
 
-func IsTransparent(tp int) bool {
+func IsTransparent(tp BlockType) bool {
 	if IsPlant(tp) {
 		return true
 	}
 	switch tp {
-	case -1, 0, 10, 15:
+	case 0, 10, 15:
 		return true
 	default:
 		return false
 	}
 }
 
-func IsObstacle(tp int) bool {
+func IsObstacle(tp BlockType) bool {
 	if IsPlant(tp) {
 		return false
 	}
 	switch tp {
-	case -1:
-		return true
 	case 0:
 		return false
 	default:
@@ -139,7 +137,7 @@ func IsObstacle(tp int) bool {
 
 func (w *World) HasBlock(id BlockID) bool {
 	tp := w.Block(id)
-	return tp != -1 && tp != 0
+	return tp != 0
 }
 
 func (w *World) Chunk(id ChunkID) *Chunk {
@@ -152,7 +150,7 @@ func (w *World) Chunk(id ChunkID) *Chunk {
 	for block, tp := range blocks {
 		chunk.Add(block, tp)
 	}
-	err := store.RangeBlocks(id, func(bid BlockID, w int) {
+	err := store.RangeBlocks(id, func(bid BlockID, w BlockType) {
 		if w == 0 {
 			chunk.Del(bid)
 			return
@@ -185,7 +183,7 @@ func (w *World) Chunks(ids []ChunkID) []*Chunk {
 	return chunks
 }
 
-func makeChunkMap(cid ChunkID) map[BlockID]int {
+func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 	const (
 		grassBlock = 1
 		sandBlock  = 2
@@ -193,7 +191,8 @@ func makeChunkMap(cid ChunkID) map[BlockID]int {
 		leaves     = 15
 		wood       = 5
 	)
-	m := make(map[BlockID]int)
+	m := make(map[BlockID]BlockType)
+	startY, endY := cid.Y*ChunkWidth, (cid.Y+1)*ChunkWidth-1
 	p, q := cid.X, cid.Z
 	for dx := 0; dx < ChunkWidth; dx++ {
 		for dz := 0; dz < ChunkWidth; dz++ {
@@ -202,24 +201,29 @@ func makeChunkMap(cid ChunkID) map[BlockID]int {
 			g := noise2(float32(-x)*0.01, float32(-z)*0.01, 2, 0.9, 2)
 			mh := int(g*32 + 16)
 			h := int(f * float32(mh))
-			w := grassBlock
+			var w BlockType = grassBlock
 			if h <= 12 {
 				h = 12
 				w = sandBlock
 			}
+
 			// grass and sand
 			for y := 0; y < h; y++ {
-				m[BlockID{x, y, z}] = w
+				if y >= startY && y <= endY {
+					m[BlockID{x, y, z}] = w
+				}
 			}
 
 			// flowers
-			if w == grassBlock {
-				if noise2(-float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2) > 0.6 {
-					m[BlockID{x, h, z}] = grass
-				}
-				if noise2(float32(x)*0.05, float32(-z)*0.05, 4, 0.8, 2) > 0.7 {
-					w := 18 + int(noise2(float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2)*7)
-					m[BlockID{x, h, z}] = w
+			if h >= startY && h <= endY {
+				if w == grassBlock {
+					if noise2(-float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2) > 0.6 {
+						m[BlockID{x, h, z}] = grass
+					}
+					if noise2(float32(x)*0.05, float32(-z)*0.05, 4, 0.8, 2) > 0.7 {
+						w := BlockType(18 + int(noise2(float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2)*7))
+						m[BlockID{x, h, z}] = w
+					}
 				}
 			}
 
@@ -236,20 +240,24 @@ func makeChunkMap(cid ChunkID) map[BlockID]int {
 							for oz := -3; oz <= 3; oz++ {
 								d := ox*ox + oz*oz + (y-h-4)*(y-h-4)
 								if d < 11 {
-									m[BlockID{x + ox, y, z + oz}] = leaves
+									if y >= startY && y <= endY {
+										m[BlockID{x + ox, y, z + oz}] = leaves
+									}
 								}
 							}
 						}
 					}
 					for y := h; y < h+7; y++ {
-						m[BlockID{x, y, z}] = wood
+						if y >= startY && y <= endY {
+							m[BlockID{x, y, z}] = wood
+						}
 					}
 				}
 			}
 
 			// cloud
 			for y := 64; y < 72; y++ {
-				if noise3(float32(x)*0.01, float32(y)*0.1, float32(z)*0.01, 8, 0.5, 2) > 0.69 {
+				if y >= startY && y <= endY && noise3(float32(x)*0.01, float32(y)*0.1, float32(z)*0.01, 8, 0.5, 2) > 0.69 {
 					m[BlockID{x, y, z}] = 16
 				}
 			}

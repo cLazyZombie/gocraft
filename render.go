@@ -96,7 +96,7 @@ func (r *BlockRender) makeChunkMesh(c *Chunk, onmainthread bool) *Mesh {
 	facedata := r.facePool.Get().([]float32)
 	defer r.facePool.Put(facedata[:0])
 
-	c.RangeBlocks(func(id BlockID, w int) {
+	c.RangeBlocks(func(id BlockID, w BlockType) {
 		if w == 0 {
 			log.Panicf("unexpect 0 item type on %v", id)
 		}
@@ -130,7 +130,7 @@ func (r *BlockRender) makeChunkMesh(c *Chunk, onmainthread bool) *Mesh {
 }
 
 // call on mainthread
-func (r *BlockRender) UpdateItem(w int) {
+func (r *BlockRender) UpdateItem(w BlockType) {
 	vertices := r.facePool.Get().([]float32)
 	defer r.facePool.Put(vertices[:0])
 	texture := tex.Texture(w)
@@ -161,7 +161,7 @@ func frustumPlanes(mat *mgl32.Mat4) []mgl32.Vec4 {
 }
 
 func isChunkVisiable(planes []mgl32.Vec4, id ChunkID) bool {
-	p := mgl32.Vec3{float32(id.X * ChunkWidth), 0, float32(id.Z * ChunkWidth)}
+	p := mgl32.Vec3{float32(id.X * ChunkWidth), float32(id.Y * ChunkWidth), float32(id.Z * ChunkWidth)}
 	const m = ChunkWidth
 
 	points := []mgl32.Vec3{
@@ -170,10 +170,10 @@ func isChunkVisiable(planes []mgl32.Vec4, id ChunkID) bool {
 		mgl32.Vec3{p.X() + m, p.Y(), p.Z() + m},
 		mgl32.Vec3{p.X(), p.Y(), p.Z() + m},
 
-		mgl32.Vec3{p.X(), p.Y() + 256, p.Z()},
-		mgl32.Vec3{p.X() + m, p.Y() + 256, p.Z()},
-		mgl32.Vec3{p.X() + m, p.Y() + 256, p.Z() + m},
-		mgl32.Vec3{p.X(), p.Y() + 256, p.Z() + m},
+		mgl32.Vec3{p.X(), p.Y() + m, p.Z()},
+		mgl32.Vec3{p.X() + m, p.Y() + m, p.Z()},
+		mgl32.Vec3{p.X() + m, p.Y() + m, p.Z() + m},
+		mgl32.Vec3{p.X(), p.Y() + m, p.Z() + m},
 	}
 	for _, plane := range planes {
 		var in, out int
@@ -241,17 +241,19 @@ func (r *BlockRender) sortNeededChunks(m map[ChunkID]bool) []ChunkID {
 func (r *BlockRender) updateMeshCache() {
 	block := NearBlock(r.game.camera.Pos())
 	chunk := block.ChunkID()
-	x, z := chunk.X, chunk.Z
+	x, y, z := chunk.X, chunk.Y, chunk.Z
 	n := *renderRadius
 	needed := make(map[ChunkID]bool)
 
 	for dx := -n; dx < n; dx++ {
-		for dz := -n; dz < n; dz++ {
-			id := ChunkID{x + dx, 0, z + dz}
-			if dx*dx+dz*dz > n*n {
-				continue
+		for dy := -n; dy < n; dy++ {
+			for dz := -n; dz < n; dz++ {
+				id := ChunkID{x + dx, y + dy, z + dz}
+				if dx*dx+dy*dy+dz*dz > n*n*n {
+					continue
+				}
+				needed[id] = true
 			}
-			needed[id] = true
 		}
 	}
 	var added, removed []ChunkID
@@ -335,9 +337,11 @@ func (r *BlockRender) forcePlayerChunks() {
 	cid := bid.ChunkID()
 	var ids []ChunkID
 	for dx := -1; dx <= 1; dx++ {
-		for dz := -1; dz <= 1; dz++ {
-			id := ChunkID{cid.X + dx, 0, cid.Z + dz}
-			ids = append(ids, id)
+		for dy := -1; dy <= 1; dy++ {
+			for dz := -1; dz <= 1; dz++ {
+				id := ChunkID{cid.X + dx, cid.Y + dy, cid.Z + dz}
+				ids = append(ids, id)
+			}
 		}
 	}
 	r.forceChunks(ids)

@@ -56,7 +56,7 @@ func NewStore(p string) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) UpdateBlock(id BlockID, w int) error {
+func (s *Store) UpdateBlock(id BlockID, w BlockType) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		log.Printf("put %v -> %d", id, w)
 		bkt := tx.Bucket(blockBucket)
@@ -96,7 +96,7 @@ func (s *Store) GetCamera() (mgl32.Vec3, float32, float32) {
 	return pos, rx, ry
 }
 
-func (s *Store) RangeBlocks(id ChunkID, f func(bid BlockID, w int)) error {
+func (s *Store) RangeBlocks(id ChunkID, f func(bid BlockID, w BlockType)) error {
 	return s.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(blockBucket)
 		startkey := encodeBlockDbKey(id, BlockID{0, 0, 0})
@@ -141,15 +141,15 @@ func decodeBlockDbKey(b []byte) (ChunkID, BlockID) {
 	return cid, bid
 }
 
-func encodeBlockDbValue(w int) []byte {
-	value := make([]byte, 4)
-	binary.LittleEndian.PutUint32(value, uint32(w))
+func encodeBlockDbValue(w BlockType) []byte {
+	value := make([]byte, 2)
+	binary.LittleEndian.PutUint16(value, uint16(w))
 	return value
 }
 
-func decodeBlockDbValue(b []byte) int {
-	if len(b) != 4 {
+func decodeBlockDbValue(b []byte) BlockType {
+	if len(b) != 2 {
 		log.Panicf("bad db value length:%d", len(b))
 	}
-	return int(binary.LittleEndian.Uint32(b))
+	return BlockType(binary.LittleEndian.Uint16(b))
 }

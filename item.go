@@ -31,16 +31,16 @@ type BlockTexture struct {
 }
 
 type ItemHub struct {
-	tex map[int]*BlockTexture
+	tex map[BlockType]*BlockTexture
 }
 
 func NewItemHub() *ItemHub {
 	return &ItemHub{
-		tex: make(map[int]*BlockTexture),
+		tex: make(map[BlockType]*BlockTexture),
 	}
 }
 
-func (h *ItemHub) AddTexture(w, l, r, u, d, f, b int) {
+func (h *ItemHub) AddTexture(w BlockType, l, r, u, d, f, b int) {
 	h.tex[w] = &BlockTexture{
 		Left:  MakeFaceTexture(l),
 		Right: MakeFaceTexture(r),
@@ -51,7 +51,7 @@ func (h *ItemHub) AddTexture(w, l, r, u, d, f, b int) {
 	}
 }
 
-func (h *ItemHub) Texture(w int) *BlockTexture {
+func (h *ItemHub) Texture(w BlockType) *BlockTexture {
 	t, ok := h.tex[w]
 	if !ok {
 		log.Printf("%d not found", w)
@@ -68,7 +68,7 @@ func LoadTextureDesc() error {
 }
 
 // w => left, right, top, bottom, front, back
-var itemDesc = map[int][6]int{
+var itemDesc = map[BlockType][6]int{
 	0:  {0, 0, 0, 0, 0, 0},
 	1:  {16, 16, 32, 0, 16, 16},
 	2:  {1, 1, 1, 1, 1, 1},
@@ -136,7 +136,7 @@ var itemDesc = map[int][6]int{
 	64: {226, 224, 241, 209, 227, 225},
 }
 
-var availableItems = []int{
+var availableItems = []BlockType{
 	1,
 	2,
 	3,
