@@ -83,7 +83,7 @@ func NewGame(w, h int) (*Game, error) {
 		win.SetKeyCallback(game.onKeyCallback)
 		game.win = win
 	})
-	game.world = NewWorld()
+	game.world = NewWorld(store)
 	game.camera = NewCamera(mgl32.Vec3{0, 16, 0})
 	game.blockRender, err = NewBlockRender(game)
 	if err != nil {

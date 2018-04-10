@@ -11,13 +11,15 @@ import (
 type World struct {
 	mutex  sync.Mutex
 	chunks *lru.Cache // map[ChunkID]*Chunk
+	store  IStore
 }
 
-func NewWorld() *World {
+func NewWorld(store IStore) *World {
 	m := (*renderRadius) * (*renderRadius) * (*renderRadius) * 4
 	chunks, _ := lru.New(m)
 	return &World{
 		chunks: chunks,
+		store:  store,
 	}
 }
 
@@ -95,8 +97,8 @@ func (w *World) Block(id BlockID) BlockType {
 	return chunk.Block(id)
 }
 
-func (w *World) BlockChunk(block BlockID) *Chunk {
-	cid := block.ChunkID()
+func (w *World) BlockChunk(bid BlockID) *Chunk {
+	cid := bid.ChunkID()
 	chunk, ok := w.loadChunk(cid)
 	if !ok {
 		return nil
@@ -104,22 +106,22 @@ func (w *World) BlockChunk(block BlockID) *Chunk {
 	return chunk
 }
 
-func (w *World) HasBlock(id BlockID) bool {
-	tp := w.Block(id)
+func (w *World) HasBlock(bid BlockID) bool {
+	tp := w.Block(bid)
 	return tp != 0
 }
 
-func (w *World) Chunk(id ChunkID) *Chunk {
-	p, ok := w.loadChunk(id)
+func (w *World) Chunk(cid ChunkID) *Chunk {
+	p, ok := w.loadChunk(cid)
 	if ok {
 		return p
 	}
-	chunk := NewChunk(id)
-	blocks := makeChunkMap(id)
+	chunk := NewChunk(cid)
+	blocks := makeChunkMap(cid)
 	for block, tp := range blocks {
 		chunk.Add(block, tp)
 	}
-	err := store.RangeBlocks(id, func(bid BlockID, w BlockType) {
+	err := w.store.RangeBlocks(cid, func(bid BlockID, w BlockType) {
 		if w == 0 {
 			chunk.Del(bid)
 			return
@@ -127,23 +129,22 @@ func (w *World) Chunk(id ChunkID) *Chunk {
 		chunk.Add(bid, w)
 	})
 	if err != nil {
-		log.Printf("fetch chunk(%v) from db error:%s", id, err)
+		log.Printf("fetch chunk(%v) from db error:%s", cid, err)
 		return nil
 	}
-	w.storeChunk(id, chunk)
+	w.storeChunk(cid, chunk)
 	return chunk
 }
 
-func (w *World) Chunks(ids []ChunkID) []*Chunk {
+func (w *World) Chunks(cids []ChunkID) []*Chunk {
 	ch := make(chan *Chunk)
 	var chunks []*Chunk
-	for _, id := range ids {
-		id := id
-		go func() {
-			ch <- w.Chunk(id)
-		}()
+	for _, cid := range cids {
+		go func(cid ChunkID) {
+			ch <- w.Chunk(cid)
+		}(cid)
 	}
-	for range ids {
+	for range cids {
 		chunk := <-ch
 		if chunk != nil {
 			chunks = append(chunks, chunk)

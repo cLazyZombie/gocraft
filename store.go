@@ -30,6 +30,10 @@ func InitStore() error {
 	return err
 }
 
+type IStore interface {
+	RangeBlocks(id ChunkID, f func(bid BlockID, w BlockType)) error
+}
+
 type Store struct {
 	db *bolt.DB
 }
