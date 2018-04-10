@@ -43,24 +43,24 @@ func (w *World) Collide(pos mgl32.Vec3) (mgl32.Vec3, bool) {
 
 	stop := false
 	for _, b := range []BlockID{foot, head} {
-		if IsObstacle(w.Block(b.Left())) && x < nx && nx-x > pad {
+		if w.Block(b.Left()).IsObstacle() && x < nx && nx-x > pad {
 			x = nx - pad
 		}
-		if IsObstacle(w.Block(b.Right())) && x > nx && x-nx > pad {
+		if w.Block(b.Right()).IsObstacle() && x > nx && x-nx > pad {
 			x = nx + pad
 		}
-		if IsObstacle(w.Block(b.Down())) && y < ny && ny-y > pad {
+		if w.Block(b.Down()).IsObstacle() && y < ny && ny-y > pad {
 			y = ny - pad
 			stop = true
 		}
-		if IsObstacle(w.Block(b.Up())) && y > ny && y-ny > pad {
+		if w.Block(b.Up()).IsObstacle() && y > ny && y-ny > pad {
 			y = ny + pad
 			stop = true
 		}
-		if IsObstacle(w.Block(b.Back())) && z < nz && nz-z > pad {
+		if w.Block(b.Back()).IsObstacle() && z < nz && nz-z > pad {
 			z = nz - pad
 		}
-		if IsObstacle(w.Block(b.Front())) && z > nz && z-nz > pad {
+		if w.Block(b.Front()).IsObstacle() && z > nz && z-nz > pad {
 			z = nz + pad
 		}
 	}
@@ -102,37 +102,6 @@ func (w *World) BlockChunk(block BlockID) *Chunk {
 		return nil
 	}
 	return chunk
-}
-
-func IsPlant(tp BlockType) bool {
-	if tp >= 17 && tp <= 31 {
-		return true
-	}
-	return false
-}
-
-func IsTransparent(tp BlockType) bool {
-	if IsPlant(tp) {
-		return true
-	}
-	switch tp {
-	case 0, 10, 15:
-		return true
-	default:
-		return false
-	}
-}
-
-func IsObstacle(tp BlockType) bool {
-	if IsPlant(tp) {
-		return false
-	}
-	switch tp {
-	case 0:
-		return false
-	default:
-		return true
-	}
 }
 
 func (w *World) HasBlock(id BlockID) bool {

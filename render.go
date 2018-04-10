@@ -101,14 +101,14 @@ func (r *BlockRender) makeChunkMesh(c *Chunk, onmainthread bool) *Mesh {
 			log.Panicf("unexpect 0 item type on %v", id)
 		}
 		show := [...]bool{
-			IsTransparent(r.game.world.Block(id.Left())),
-			IsTransparent(r.game.world.Block(id.Right())),
-			IsTransparent(r.game.world.Block(id.Up())),
-			IsTransparent(r.game.world.Block(id.Down())),
-			IsTransparent(r.game.world.Block(id.Front())),
-			IsTransparent(r.game.world.Block(id.Back())),
+			r.game.world.Block(id.Left()).IsTransparent(),
+			r.game.world.Block(id.Right()).IsTransparent(),
+			r.game.world.Block(id.Up()).IsTransparent(),
+			r.game.world.Block(id.Down()).IsTransparent(),
+			r.game.world.Block(id.Front()).IsTransparent(),
+			r.game.world.Block(id.Back()).IsTransparent(),
 		}
-		if IsPlant(r.game.world.Block(id)) {
+		if r.game.world.Block(id).IsPlant() {
 			facedata = makePlantData(facedata, show, id, tex.Texture(w))
 		} else {
 			facedata = makeCubeData(facedata, show, id, tex.Texture(w))
@@ -136,7 +136,7 @@ func (r *BlockRender) UpdateItem(w BlockType) {
 	texture := tex.Texture(w)
 	show := [...]bool{true, true, true, true, true, true}
 	pos := BlockID{0, 0, 0}
-	if IsPlant(w) {
+	if w.IsPlant() {
 		vertices = makePlantData(vertices, show, pos, texture)
 	} else {
 		vertices = makeCubeData(vertices, show, pos, texture)
@@ -607,12 +607,12 @@ func (r *LineRender) drawWireFrame(mat mgl32.Mat4) {
 
 	id := *block
 	show := [...]bool{
-		IsTransparent(r.game.world.Block(id.Left())),
-		IsTransparent(r.game.world.Block(id.Right())),
-		IsTransparent(r.game.world.Block(id.Up())),
-		IsTransparent(r.game.world.Block(id.Down())),
-		IsTransparent(r.game.world.Block(id.Front())),
-		IsTransparent(r.game.world.Block(id.Back())),
+		r.game.world.Block(id.Left()).IsTransparent(),
+		r.game.world.Block(id.Right()).IsTransparent(),
+		r.game.world.Block(id.Up()).IsTransparent(),
+		r.game.world.Block(id.Down()).IsTransparent(),
+		r.game.world.Block(id.Front()).IsTransparent(),
+		r.game.world.Block(id.Back()).IsTransparent(),
 	}
 	vertices = makeWireFrameData(vertices, show)
 	if len(vertices) == 0 {
