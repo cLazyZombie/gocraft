@@ -48,3 +48,8 @@ A Minecraft like game written in go, just for fun!
 ## Implementation Details
 
 Many implementations is inspired by https://github.com/fogleman/Craft, thanks for Fogleman's good work!
+
+## Todo
+- [ ] store chunk as binary format
+- [ ] add more test
+- [ ] understand render.go
