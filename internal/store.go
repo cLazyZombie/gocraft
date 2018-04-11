@@ -60,12 +60,12 @@ func NewStore(p string) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) UpdateBlock(id BlockID, w BlockType) error {
+func (s *Store) UpdateBlock(bid BlockID, w BlockType) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		log.Printf("put %v -> %d", id, w)
+		log.Printf("put %v -> %d", bid, w)
 		bkt := tx.Bucket(blockBucket)
-		cid := id.ChunkID()
-		key := encodeBlockDbKey(cid, id)
+		cid := bid.ChunkID()
+		key := encodeBlockDbKey(cid, bid)
 		value := encodeBlockDbValue(w)
 		return bkt.Put(key, value)
 	})
