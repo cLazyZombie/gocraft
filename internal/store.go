@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ var (
 	blockBucket  = []byte("block")
 	cameraBucket = []byte("camera")
 
-	store *Store
+	GlobalStore *Store
 )
 
 func InitStore() error {
@@ -26,7 +26,7 @@ func InitStore() error {
 		return nil
 	}
 	var err error
-	store, err = NewStore(*dbpath)
+	GlobalStore, err = NewStore(*dbpath)
 	return err
 }
 
