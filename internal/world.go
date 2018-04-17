@@ -117,21 +117,20 @@ func (w *World) Chunk(cid ChunkID) *Chunk {
 		return p
 	}
 	chunk := NewChunk(cid)
-	blocks := makeChunkMap(cid)
-	for block, tp := range blocks {
-		chunk.Add(block, tp)
-	}
-	err := w.store.RangeBlocks(cid, func(bid BlockID, w BlockType) {
-		if w == 0 {
-			chunk.Del(bid)
-			return
-		}
-		chunk.Add(bid, w)
-	})
+
+	// check chunk is saved
+	blocks, err := w.store.ChunkBlocks(cid)
 	if err != nil {
 		log.Printf("fetch chunk(%v) from db error:%s", cid, err)
 		return nil
 	}
+
+	// not saved, then create raw map
+	if blocks == nil {
+		blocks = makeChunkMap(cid)
+	}
+
+	chunk.SetBlocks(blocks)
 	w.storeChunk(cid, chunk)
 	return chunk
 }
@@ -153,7 +152,7 @@ func (w *World) Chunks(cids []ChunkID) []*Chunk {
 	return chunks
 }
 
-func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
+func makeChunkMap(cid ChunkID) []BlockType {
 	const (
 		grassBlock = 1
 		sandBlock  = 2
@@ -161,7 +160,7 @@ func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 		leaves     = 15
 		wood       = 5
 	)
-	m := make(map[BlockID]BlockType)
+	m := make([]BlockType, ChunkWidth*ChunkWidth*ChunkWidth)
 	startY, endY := cid.Y*ChunkWidth, (cid.Y+1)*ChunkWidth-1
 	p, q := cid.X, cid.Z
 	for dx := 0; dx < ChunkWidth; dx++ {
@@ -180,7 +179,7 @@ func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 			// grass and sand
 			for y := 0; y < h; y++ {
 				if y >= startY && y <= endY {
-					m[BlockID{x, y, z}] = w
+					m[BlockID{x, y, z}.ToIndex()] = w
 				}
 			}
 
@@ -188,11 +187,11 @@ func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 			if h >= startY && h <= endY {
 				if w == grassBlock {
 					if noise2(-float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2) > 0.6 {
-						m[BlockID{x, h, z}] = grass
+						m[BlockID{x, h, z}.ToIndex()] = grass
 					}
 					if noise2(float32(x)*0.05, float32(-z)*0.05, 4, 0.8, 2) > 0.7 {
 						w := BlockType(18 + int(noise2(float32(x)*0.1, float32(z)*0.1, 4, 0.8, 2)*7))
-						m[BlockID{x, h, z}] = w
+						m[BlockID{x, h, z}.ToIndex()] = w
 					}
 				}
 			}
@@ -211,7 +210,7 @@ func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 								d := ox*ox + oz*oz + (y-h-4)*(y-h-4)
 								if d < 11 {
 									if y >= startY && y <= endY {
-										m[BlockID{x + ox, y, z + oz}] = leaves
+										m[BlockID{x + ox, y, z + oz}.ToIndex()] = leaves
 									}
 								}
 							}
@@ -219,7 +218,6 @@ func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 					}
 					for y := h; y < h+7; y++ {
 						if y >= startY && y <= endY {
-							m[BlockID{x, y, z}] = wood
 						}
 					}
 				}
@@ -228,7 +226,7 @@ func makeChunkMap(cid ChunkID) map[BlockID]BlockType {
 			// cloud
 			for y := 64; y < 72; y++ {
 				if y >= startY && y <= endY && noise3(float32(x)*0.01, float32(y)*0.1, float32(z)*0.01, 8, 0.5, 2) > 0.69 {
-					m[BlockID{x, y, z}] = 16
+					m[BlockID{x, y, z}.ToIndex()] = 16
 				}
 			}
 		}

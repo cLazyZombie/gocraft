@@ -173,6 +173,12 @@ func (c *Chunk) Del(id BlockID) {
 	c.UpdateVersion()
 }
 
+func (c *Chunk) SetBlocks(blocks []BlockType) {
+	c.locker.Lock()
+	defer c.locker.Unlock()
+	c.blocks = blocks
+}
+
 func (c *Chunk) RangeBlocks(f func(id BlockID, w BlockType)) {
 	if len(c.blocks) == 0 {
 		return

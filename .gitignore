@@ -2,3 +2,4 @@ gocraft
 gocraft.db
 debug
 gocraft.db.lock
+gocrafttest/debug.test

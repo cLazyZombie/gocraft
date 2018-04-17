@@ -73,6 +73,7 @@ func NewGame(w, h int) (*Game, error) {
 		win.SetKeyCallback(game.onKeyCallback)
 		game.win = win
 	})
+
 	game.world = NewWorld(GlobalStore)
 	game.camera = NewCamera(mgl32.Vec3{0, 16, 0})
 	game.blockRender, err = NewBlockRender(game)
@@ -122,7 +123,8 @@ func (g *Game) onMouseButtonCallback(win *glfw.Window, button glfw.MouseButton, 
 		if prev != nil && *prev != head && *prev != foot {
 			chunk := g.world.BlockChunk(*prev)
 			chunk.Add(*prev, g.item)
-			GlobalStore.UpdateBlock(*prev, g.item)
+			GlobalStore.UpdateChunk(chunk.ID(), chunk.blocks)
+			//GlobalStore.UpdateBlock(*prev, g.item)
 			g.dirtyBlock(*prev)
 		}
 	}
@@ -130,7 +132,8 @@ func (g *Game) onMouseButtonCallback(win *glfw.Window, button glfw.MouseButton, 
 		if block != nil {
 			chunk := g.world.BlockChunk(*block)
 			chunk.Del(*block)
-			GlobalStore.UpdateBlock(*block, 0)
+			GlobalStore.UpdateChunk(chunk.ID(), chunk.blocks)
+			//GlobalStore.UpdateBlock(*block, 0)
 			g.dirtyBlock(*block)
 		}
 	}
