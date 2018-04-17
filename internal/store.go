@@ -15,7 +15,7 @@ var (
 )
 
 var (
-	blockBucket  = []byte("block")
+	//blockBucket  = []byte("block")
 	chunkBucket  = []byte("chunk")
 	cameraBucket = []byte("camera")
 
@@ -45,7 +45,7 @@ func NewStore(p string) (*Store, error) {
 		return nil, err
 	}
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(blockBucket)
+		_, err := tx.CreateBucketIfNotExists(chunkBucket)
 		if err != nil {
 			return err
 		}
